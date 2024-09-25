@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "py-airtable-sync"
+version = "0.1.0"
+description = ""
+authors = ["Mark Schad <mark.schad@peterwarren.com.au>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pyairtable = "^2.3.3"
+pydantic = "^2.9.2"
+pytz = "^2024.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
