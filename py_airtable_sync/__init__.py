@@ -1,4 +1,5 @@
-from .airtable_manager import *
+from py_airtable_sync.config import *
+from py_airtable_sync.manager import *
 
 __all__ = [
     "FieldUpdateType",
@@ -11,5 +12,5 @@ __all__ = [
     "SourceRecordList",
     "AirtableManager",
     "AirtableManagerSyncResult",
-    "AirtableManager",    
+    "AirtableManager",
 ]
