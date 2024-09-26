@@ -150,7 +150,7 @@ class AirtableManager:
                 continue
 
             new_record = {
-                field_config.field_name: source_field_name(field_config)
+                field_config.field_name: source_record[source_field_name(field_config)]
                 for field_config in table_config.fields
                 if source_field_name(field_config) in source_record
             }
