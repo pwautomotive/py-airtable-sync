@@ -101,7 +101,7 @@ class AirtableManager:
         table_config = self.get_table_config(table_name_or_id)
         table_id = table_config.table_id
         self.populate_foreign_keys(table_config, source_records)
-        AirtableManager.clean_date_formats(source_records)
+        AirtableManager.clean_date_formats(table_config, source_records)
 
         # Insert new records
         records_to_insert = self.get_new_records(table_config, source_records)
@@ -258,6 +258,7 @@ class AirtableManager:
     def clean_date_formats(table_config: TableConfig, source_records: SourceRecordList):
         """
         Populates the date fields in the source_records with the corresponding date formats.
+        :param table_config: The configuration of the table.
         :param source_records: The list of records to sync with the Airtable table.
         :return:
         """
