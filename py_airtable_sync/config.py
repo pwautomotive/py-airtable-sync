@@ -94,12 +94,10 @@ class AirtableBaseConfig(BaseModel):
 
     Attributes:
         model_config (ConfigDict): Configuration dictionary allowing extra fields.
-        api_key (str): The API key for accessing the Airtable base.
         tables (List[TableConfig]): The list of table configurations for the base.
     """
     model_config = ConfigDict(extra="allow")
 
-    api_key: str
     verify_ssl: Optional[bool] = True
 
     tables: List[TableConfig]

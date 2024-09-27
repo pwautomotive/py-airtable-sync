@@ -44,9 +44,9 @@ class AirtableManager:
 
     cache: TableCache = {}
 
-    def __init__(self, config: AirtableBaseConfig):
+    def __init__(self, api_key: str, config: AirtableBaseConfig):
         self.config = config
-        self.api = Api(config.api_key)
+        self.api = Api(api_key)
         self.api.session.verify = config.verify_ssl
 
     def get_table_config(self, table_id_or_name: str) -> TableConfig:
