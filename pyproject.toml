@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "py-airtable-sync"
-version = "0.1.0"
+version = "0.1.2"
 description = ""
 authors = ["Mark Schad <mark.schad@pwah.com.au>"]
 readme = "README.md"

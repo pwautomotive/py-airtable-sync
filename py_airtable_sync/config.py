@@ -95,9 +95,13 @@ class AirtableBaseConfig(BaseModel):
     Attributes:
         model_config (ConfigDict): Configuration dictionary allowing extra fields.
         tables (List[TableConfig]): The list of table configurations for the base.
+        verify_ssl (Optional[bool]): Indicates if SSL verification should be performed. Defaults to True.
+        cache_max_age (int): The maximum age of cache entries in seconds. Defaults to 3600 (1-hour).
     """
     model_config = ConfigDict(extra="allow")
 
     verify_ssl: Optional[bool] = True
 
     tables: List[TableConfig]
+    
+    cache_max_age: int = 3600

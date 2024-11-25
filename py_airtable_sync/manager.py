@@ -43,6 +43,7 @@ class AirtableManager:
     config: AirtableBaseConfig
 
     cache: TableCache = {}
+    cache_refresh_datetime: Optional[dt.datetime] = None
 
     def __init__(self, api_key: str, config: AirtableBaseConfig):
         self.config = config
@@ -58,14 +59,25 @@ class AirtableManager:
         return next(table for table in self.config.tables if
                     table.table_id == table_id_or_name or table.table_name == table_id_or_name)
 
-    def refresh_cache(self):
+    def refresh_cache(self, force: bool = False):
         """
         Refreshes the cache by clearing the existing cache and repopulating it with
         the latest records from the Airtable tables specified in the configuration.
+        :param force: Indicates if the cache should be refreshed even if it has not expired. Defaults to False.
         """
-        self.cache.clear()
+        # Only refresh the cache if the cache is empty or the cache has expired
+        cache_expired = (
+            not self.cache or
+            not self.cache_refresh_datetime or
+            (dt.datetime.now() - self.cache_refresh_datetime).total_seconds() > self.config.cache_max_age
+        )
         
-        
+        if not force and not cache_expired:
+            return
+        else:
+            self.cache_refresh_datetime = dt.datetime.now()
+
+        self.cache.clear()      
 
         for table in self.config.tables:
             logger.info(f"Refreshing cache for table {table.table_name if table.table_name else table.table_id}")
@@ -271,7 +283,7 @@ class AirtableManager:
                 if not source_field_value:
                     continue
                     
-                if not isinstance(source_field_value, dt.datetime):
+                if not isinstance(source_field_value, dt.datetime) or not isinstance(source_field_value, dt.date):
                     continue
                     
                 source_field_timezone = tz.timezone(field_config.timezone or 'UTC')
