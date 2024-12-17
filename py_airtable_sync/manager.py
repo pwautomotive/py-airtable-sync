@@ -285,9 +285,15 @@ class AirtableManager:
                     
                 if not isinstance(source_field_value, dt.datetime) or not isinstance(source_field_value, dt.date):
                     continue
-                    
+
                 source_field_timezone = tz.timezone(field_config.timezone or 'UTC')
+
+                # Remove the timezone information from the source field value if it exists
+                if source_field_value.tzinfo:
+                    source_field_value = source_field_value.replace(tzinfo=None)
+
                 # Apply the source field timezone to the source field value
                 source_field_value = source_field_timezone.localize(source_field_value).astimezone(tz.UTC)
+
                 source_record[source_field_name] = source_field_value.strftime("%Y-%m-%dT%H:%M:%S") + '.000Z'                
             
