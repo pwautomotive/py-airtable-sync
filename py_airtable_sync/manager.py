@@ -71,13 +71,13 @@ class AirtableManager:
             not self.cache_refresh_datetime or
             (dt.datetime.now() - self.cache_refresh_datetime).total_seconds() > self.config.cache_max_age
         )
-        
+
         if not force and not cache_expired:
             return
         else:
             self.cache_refresh_datetime = dt.datetime.now()
 
-        self.cache.clear()      
+        self.cache.clear()
 
         for table in self.config.tables:
             logger.info(f"Refreshing cache for table {table.table_name if table.table_name else table.table_id}")
@@ -85,7 +85,7 @@ class AirtableManager:
             records = table_obj.all(fields=[field.field_name for field in table.fields])
             self.cache[table.table_id] = {record['id']: record for record in records}
             logger.info(f"Loaded {len(records)} records into cache")
-            
+
     @staticmethod
     def get_source_record_field_value(source_record: SourceRecord, field_config: FieldConfig) -> Any:
         """
@@ -98,7 +98,7 @@ class AirtableManager:
             return source_record[field_config.source_field_name]
         if field_config.field_name in source_record:
             return source_record[field_config.field_name]
-        
+
         raise ValueError(f"Field {field_config.field_name} not found in source record")
 
     def sync_records(self, table_name_or_id: str, source_records: SourceRecordList) -> AirtableManagerSyncResult:
@@ -145,7 +145,7 @@ class AirtableManager:
             ),
             None
         )
-    
+
     def get_new_records(self, table_config: TableConfig, source_records: SourceRecordList) -> List[Dict[str, Any]]:
         """
         Returns the records that are new in the source_records compared to the records in the cache.
@@ -181,7 +181,7 @@ class AirtableManager:
         updated_records = []
         for source_record in source_records:
             remote_record = self.get_remote_record(table_config, source_record)
-            
+
             # If the record does not exist in the remote table, skip it
             if not remote_record:
                 continue
@@ -215,8 +215,13 @@ class AirtableManager:
             if source_field_value == remote_field_value:
                 continue
 
-            if field_config.update_type == FieldUpdateType.always or (
-                    field_config.update_type == FieldUpdateType.if_empty and remote_field_value is None):
+            is_qualifying_override = field_config.if_empty_overrides and source_field_value in field_config.if_empty_overrides
+            is_empty_should_update = remote_field_value is None or is_qualifying_override
+            should_update = (
+                field_config.update_type == FieldUpdateType.always or
+                field_config.update_type == FieldUpdateType.if_empty and is_empty_should_update)
+
+            if should_update:
                 updated_fields[field_config.field_name] = source_field_value
 
         return updated_fields
@@ -279,10 +284,10 @@ class AirtableManager:
 
                 source_field_name = field_config.source_field_name or field_config.field_name
                 source_field_value = source_record.get(source_field_name, None)
-                
+
                 if not source_field_value:
                     continue
-                    
+
                 if not isinstance(source_field_value, dt.datetime) or not isinstance(source_field_value, dt.date):
                     continue
 
@@ -295,5 +300,4 @@ class AirtableManager:
                 # Apply the source field timezone to the source field value
                 source_field_value = source_field_timezone.localize(source_field_value).astimezone(tz.UTC)
 
-                source_record[source_field_name] = source_field_value.strftime("%Y-%m-%dT%H:%M:%S") + '.000Z'                
-            
+                source_record[source_field_name] = source_field_value.strftime("%Y-%m-%dT%H:%M:%S") + '.000Z'

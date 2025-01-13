@@ -39,7 +39,8 @@ class FieldConfig(BaseModel):
         field_name (str): The name of the field.
         is_primary (bool): Indicates if the field is a primary key. Defaults to False.
         update_type (Optional[FieldUpdateType]): The type of update allowed for the field. Defaults to FieldUpdateType.never.
-        foreign_table_id (Optional[str]): The ID of the foreign table if the field is a foreign key. Defaults to None.
+        if_empty_overrides (list[str] | None): The list of values that should always be updated. Defaults to None.
+        foreign_table_id (Optional[str]): The ID of the foreign table if the field is a foreign key. Only works when update_type is `is_empty`. Defaults to None.
         foreign_field_name (Optional[str]): The name of the field in the foreign table that this field references. Defaults to None.
         foreign_update_type (Optional[ForeignKeyUpdateType]): The type of update allowed for the foreign key. Defaults to ForeignKeyUpdateType.ignore.
         source_field_name (Optional[str]): The name of the field in the source record that corresponds to this field. Defaults to None.
@@ -49,6 +50,7 @@ class FieldConfig(BaseModel):
     field_name: str
     is_primary: bool = False
     update_type: Optional[FieldUpdateType] = FieldUpdateType.never
+    if_empty_overrides: list[str] | None = None
     foreign_table_id: Optional[str] = None
     foreign_field_name: Optional[str] = None  # The name of the field in the foreign table that this field references
     foreign_update_type: Optional[ForeignKeyUpdateType] = ForeignKeyUpdateType.ignore
