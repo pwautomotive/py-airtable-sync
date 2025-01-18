@@ -2,7 +2,7 @@
 import pytz as tz
 from enum import Enum
 from logging import getLogger
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Callable
 
 from pyairtable import Api
 from pyairtable.api.types import RecordDict, Fields, UpdateRecordDict, CreateRecordDict
@@ -101,12 +101,13 @@ class AirtableManager:
 
         raise ValueError(f"Field {field_config.field_name} not found in source record")
 
-    def sync_records(self, table_name_or_id: str, source_records: SourceRecordList) -> AirtableManagerSyncResult:
+    def sync_records(self, table_name_or_id: str, source_records: SourceRecordList, before_update_fn: Callable | None = None) -> AirtableManagerSyncResult:
         """
         Synchronizes the source_records with the records in the Airtable table specified by table_id.
         :param table_name_or_id: The ID of the Airtable table to sync the records with.
         :param source_records: The list of records to sync with the Airtable table. Records might be mutated in place.
-        :return: 
+        :param before_update_fn: A function to call before comparing source and remote records. Defaults to None.
+        :return:
         """
         self.refresh_cache()
 
@@ -116,14 +117,18 @@ class AirtableManager:
         AirtableManager.clean_date_formats(table_config, source_records)
 
         # Insert new records
+        logger.info("Looking for new records...")
         records_to_insert = self.get_new_records(table_config, source_records)
+        logger.info(f"Found {len(records_to_insert)} new records to insert")
         created_records = self.api.table(table_config.base_id, table_config.table_id).batch_create(records_to_insert)
-        logger.info(f"Found {len(created_records)} new records to insert")
+        logger.info(f"Inserted {len(created_records)} new records")
 
         # Update existing records
-        records_to_update = self.get_updated_records(table_config, source_records)
+        logger.info("Looking for changed records...")
+        records_to_update = self.get_updated_records(table_config, source_records, before_update_fn)
+        logger.info(f"Found {len(records_to_update)} existing records to update")
         updated_records = self.api.table(table_config.base_id, table_config.table_id).batch_update(records_to_update)
-        logger.info(f"Found {len(updated_records)} existing records to update")
+        logger.info(f"Updated {len(updated_records)} existing records")
 
         # Update the cache
         for record in created_records + updated_records:
@@ -170,12 +175,13 @@ class AirtableManager:
 
         return new_records
 
-    def get_updated_records(self, table_config: TableConfig, source_records: SourceRecordList) -> List[
+    def get_updated_records(self, table_config: TableConfig, source_records: SourceRecordList, before_update_fn: Callable | None = None) -> List[
         UpdateRecordDict]:
         """
         Returns the records that have been updated in the source_records compared to the records in the cache.
         :param table_config: The configuration of the table for which to find updated records.
         :param source_records: The list of records to sync with the Airtable table.
+        
         :return: 
         """
         updated_records = []
@@ -185,6 +191,9 @@ class AirtableManager:
             # If the record does not exist in the remote table, skip it
             if not remote_record:
                 continue
+
+            if before_update_fn:
+                before_update_fn(source_record, remote_record)
 
             updated_fields = self.get_updated_fields(table_config, source_record, remote_record)
             if len(updated_fields) > 0:
