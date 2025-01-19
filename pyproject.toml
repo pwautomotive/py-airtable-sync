@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "py-airtable-sync"
-version = "0.1.5"
+version = "0.2.0"
 description = ""
 authors = ["Mark Schad <mark.schad@pwah.com.au>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-pyairtable = "^2.3.3"
+pyairtable = "^3.0.1"
 pydantic = "^2.9.2"
 pytz = "^2024.2"
 

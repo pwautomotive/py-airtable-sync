@@ -82,6 +82,8 @@ class AirtableManager:
         for table in self.config.tables:
             logger.info(f"Refreshing cache for table {table.table_name if table.table_name else table.table_id}")
             table_obj = self.api.table(table.base_id, table.table_id)
+            fields = [field.field_name for field in table.fields]
+            logger.info(f"Including fields {fields}")
             records = table_obj.all(fields=[field.field_name for field in table.fields])
             self.cache[table.table_id] = {record['id']: record for record in records}
             logger.info(f"Loaded {len(records)} records into cache")
