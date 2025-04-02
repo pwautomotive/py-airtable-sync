@@ -17,6 +17,9 @@ logger = getLogger(__name__)
 # The inner dictionary's key is the record ID and the value is the record data.
 type TableCache = Dict[str, Dict[str, RecordDict]]
 
+# Type alias for primary key to record id index
+type TableCacheIndex = dict[str, dict[tuple, str]]
+
 # Type alias for a source record.
 # A source record is a dictionary where the key is a string and the value can be of any type.
 type SourceRecord = Dict[str, Any]
@@ -43,6 +46,7 @@ class AirtableManager:
     config: AirtableBaseConfig
 
     cache: TableCache = {}
+    cache_index: TableCacheIndex = {}
     cache_refresh_datetime: Optional[dt.datetime] = None
 
     def __init__(self, api_key: str, config: AirtableBaseConfig):
@@ -78,6 +82,7 @@ class AirtableManager:
             self.cache_refresh_datetime = dt.datetime.now()
 
         self.cache.clear()
+        self.cache_index.clear()
 
         for table in self.config.tables:
             logger.info(f"Refreshing cache for table {table.table_name if table.table_name else table.table_id}")
@@ -86,7 +91,27 @@ class AirtableManager:
             logger.info(f"Including fields {fields}")
             records = table_obj.all(fields=[field.field_name for field in table.fields])
             self.cache[table.table_id] = {record['id']: record for record in records}
+
+            # Build index for primary key fields
+            if table.primary_key_fields:
+                self._build_primary_key_index(table)
+
             logger.info(f"Loaded {len(records)} records into cache")
+
+    def _build_primary_key_index(self, table_config: TableConfig):
+        if not table_config.primary_key_fields:
+            return
+
+        table_id = table_config.table_id
+        self.cache_index[table_id] = {}
+
+        for record_id, record in self.cache[table_id].items():
+            # Create a tuple of primary key values to use as dictionary key
+            pk_values = tuple(record["fields"].get(pk_field) for pk_field in table_config.primary_key_fields)
+            # Skip records with missing primary key values
+            if None in pk_values:
+                continue
+            self.cache_index[table_id][pk_values] = record_id
 
     @staticmethod
     def get_source_record_field_value(source_record: SourceRecord, field_config: FieldConfig) -> Any:
@@ -103,7 +128,8 @@ class AirtableManager:
 
         raise ValueError(f"Field {field_config.field_name} not found in source record")
 
-    def sync_records(self, table_name_or_id: str, source_records: SourceRecordList, before_update_fn: Callable | None = None) -> AirtableManagerSyncResult:
+    def sync_records(self, table_name_or_id: str, source_records: SourceRecordList,
+                     before_update_fn: Callable | None = None) -> AirtableManagerSyncResult:
         """
         Synchronizes the source_records with the records in the Airtable table specified by table_id.
         :param table_name_or_id: The ID of the Airtable table to sync the records with.
@@ -141,8 +167,22 @@ class AirtableManager:
             updated_records=len(updated_records)
         )
 
-    def get_remote_record(self, table_config: TableConfig, source_record: SourceRecord) -> RecordDict:
-        # Get the remote record with matching primary key fields
+    def get_remote_record(self, table_config: TableConfig, source_record: SourceRecord) -> RecordDict | None:
+        """
+        Gets the remote record with matching primary key fields using an index for faster lookup.
+        """
+        table_id = table_config.table_id
+
+        # Use the index if available
+        if table_id in self.cache_index:
+            # Create tuple of primary key values from source record
+            pk_values = tuple(source_record.get(pk_field) for pk_field in table_config.primary_key_fields)
+
+            # Look up record ID in the index
+            record_id = self.cache_index[table_id].get(pk_values)
+            return self.cache[table_id].get(record_id) if record_id else None
+
+        # Fallback to linear search if no index or record not found in index
         return next(
             (
                 remote_record for remote_record in self.cache[table_config.table_id].values()
@@ -177,7 +217,8 @@ class AirtableManager:
 
         return new_records
 
-    def get_updated_records(self, table_config: TableConfig, source_records: SourceRecordList, before_update_fn: Callable | None = None) -> List[
+    def get_updated_records(self, table_config: TableConfig, source_records: SourceRecordList,
+                            before_update_fn: Callable | None = None) -> List[
         UpdateRecordDict]:
         """
         Returns the records that have been updated in the source_records compared to the records in the cache.
