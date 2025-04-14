@@ -98,6 +98,15 @@ class AirtableManager:
 
             logger.info(f"Loaded {len(records)} records into cache")
 
+    def _update_primary_key_index(self, table_config: TableConfig, records: list[RecordDict]):
+        for record in records:
+            # Create a tuple of primary key values to use as dictionary key
+            pk_values = tuple(record["fields"].get(pk_field) for pk_field in table_config.primary_key_fields)
+            # Skip records with missing primary key values
+            if None in pk_values:
+                continue
+            self.cache_index[table_config.table_id][pk_values] = record["id"]
+
     def _build_primary_key_index(self, table_config: TableConfig):
         if not table_config.primary_key_fields:
             return
@@ -105,13 +114,8 @@ class AirtableManager:
         table_id = table_config.table_id
         self.cache_index[table_id] = {}
 
-        for record_id, record in self.cache[table_id].items():
-            # Create a tuple of primary key values to use as dictionary key
-            pk_values = tuple(record["fields"].get(pk_field) for pk_field in table_config.primary_key_fields)
-            # Skip records with missing primary key values
-            if None in pk_values:
-                continue
-            self.cache_index[table_id][pk_values] = record_id
+        records = list(self.cache[table_id].values())
+        self._update_primary_key_index(table_config, records)
 
     @staticmethod
     def get_source_record_field_value(source_record: SourceRecord, field_config: FieldConfig) -> Any:
@@ -159,8 +163,14 @@ class AirtableManager:
         logger.info(f"Updated {len(updated_records)} existing records")
 
         # Update the cache
-        for record in created_records + updated_records:
-            self.cache[table_id][record["id"]] = record
+        mutated_records = created_records + updated_records
+        
+        # Update the cache
+        for record in mutated_records:
+            self.cache[table_id][record["id"]] = record            
+            
+        # Update the index
+        self._update_primary_key_index(table_config, mutated_records)
 
         return AirtableManagerSyncResult(
             inserted_records=len(created_records),
