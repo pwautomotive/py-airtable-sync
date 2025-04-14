@@ -97,11 +97,21 @@ class AirtableManager:
                 self._build_primary_key_index(table)
 
             logger.info(f"Loaded {len(records)} records into cache")
+            
+    @staticmethod
+    def _get_primary_key_values(table_config: TableConfig, record: RecordDict) -> tuple:
+        """
+        Returns the primary key values for the given record based on the table configuration.
+        :param table_config: The configuration of the table.
+        :param record: The record to get the primary key values for.
+        :return: A list of primary key values.
+        """
+        return tuple(record["fields"].get(pk_field) for pk_field in table_config.primary_key_fields)
 
     def _update_primary_key_index(self, table_config: TableConfig, records: list[RecordDict]):
         for record in records:
             # Create a tuple of primary key values to use as dictionary key
-            pk_values = tuple(record["fields"].get(pk_field) for pk_field in table_config.primary_key_fields)
+            pk_values = AirtableManager._get_primary_key_values(table_config, record)
             # Skip records with missing primary key values
             if None in pk_values:
                 continue
@@ -153,7 +163,11 @@ class AirtableManager:
         records_to_insert = self.get_new_records(table_config, source_records)
         logger.info(f"Found {len(records_to_insert)} new records to insert")
         created_records = self.api.table(table_config.base_id, table_config.table_id).batch_create(records_to_insert)
-        logger.info(f"Inserted {len(created_records)} new records")
+        # logger.info(f"Inserted {len(created_records)} new records")
+        
+        # Report the created records
+        for record in created_records:
+            logger.info(f"CREATE {record['id']}: {AirtableManager._get_primary_key_values(table_config, record)}")
 
         # Update existing records
         logger.info("Looking for changed records...")
@@ -161,6 +175,10 @@ class AirtableManager:
         logger.info(f"Found {len(records_to_update)} existing records to update")
         updated_records = self.api.table(table_config.base_id, table_config.table_id).batch_update(records_to_update)
         logger.info(f"Updated {len(updated_records)} existing records")
+        
+        # Report the updated records
+        for record in updated_records:
+            logger.info(f"UPDATE {record['id']}: {AirtableManager._get_primary_key_values(table_config, record)}")
 
         # Update the cache
         mutated_records = created_records + updated_records
@@ -223,6 +241,7 @@ class AirtableManager:
                 for field_config in table_config.fields
                 if source_field_name(field_config) in source_record
             }
+            
             new_records.append(new_record)
 
         return new_records
